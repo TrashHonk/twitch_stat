@@ -1,29 +1,28 @@
-import socket
 import logging
-from datetime import datetime
 import re
+import socket
 import time
-import pandas as pd
+from datetime import datetime
 
+import pandas as pd
 from emoji import demojize
 
+info_socket = {"server": 'irc.chat.twitch.tv',
+               "port": 6667,
+               "nickname": "",
+               "token": "",
+               "channel": ""}
 
-info_socket = {"server":'irc.chat.twitch.tv',
-                "port":6667,
-                "nickname":"",
-                "token":"",
-                "channel":""}
 
+def connect_socket(twitch_info_socket):
+    con_socket = socket.socket()
+    con_socket.connect((twitch_info_socket['server'], twitch_info_socket['port']))
 
-def connect_socket(info_socket):
-    sock = socket.socket()
-    sock.connect((info_socket['server'], info_socket['port']))
+    con_socket.send(f"PASS {twitch_info_socket['token']}\n".encode('utf-8'))
+    con_socket.send(f"NICK {twitch_info_socket['nickname']}\n".encode('utf-8'))
+    con_socket.send(f"JOIN {twitch_info_socket['channel']}\n".encode('utf-8'))
 
-    sock.send(f"PASS {info_socket['token']}\n".encode('utf-8'))
-    sock.send(f"NICK {info_socket['nickname']}\n".encode('utf-8'))
-    sock.send(f"JOIN {info_socket['channel']}\n".encode('utf-8'))
-
-    return sock
+    return con_socket
 
 
 def get_chat_dataframe(file):
@@ -40,8 +39,8 @@ def get_chat_dataframe(file):
                 username_message = line.split('—')[1:]
                 username_message = '—'.join(username_message).strip()
 
-                username, channel, message = re.search(
-                    ':(.*)\!.*@.*\.tmi\.twitch\.tv PRIVMSG #(.*) :(.*)', username_message).groups()
+                username, channel, message = re.search(':(.*)!.*@.*\.tmi\.twitch\.tv PRIVMSG #(.*) :(.*)',
+                                                       username_message).groups()
 
                 if message.startswith("@"):
                     addressee = message.split(' ')[0]
@@ -65,7 +64,6 @@ def get_chat_dataframe(file):
 
 
 def run_log_chat(sock):
-
     logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s — %(message)s',
                         datefmt='%Y-%m-%d_%H:%M:%S',
@@ -82,24 +80,30 @@ def run_log_chat(sock):
 
             localtime = time.localtime(time.time())
             time_msg = "{}-{}-{}_{}:{}:{}".format(localtime.tm_year,
-                                                localtime.tm_mon,
-                                                localtime.tm_mday,
-                                                localtime.tm_hour,
-                                                localtime.tm_min,
-                                                localtime.tm_sec)
+                                                  localtime.tm_mon,
+                                                  localtime.tm_mday,
+                                                  localtime.tm_hour,
+                                                  localtime.tm_min,
+                                                  localtime.tm_sec)
 
             time_msg = datetime.strptime(time_msg, '%Y-%m-%d_%H:%M:%S')
 
             msg = demojize(resp)
 
             try:
-                username, channel, message = re.search(r':(.*)\!.*@.*\.tmi\.twitch\.tv PRIVMSG #(.*) :(.*)', msg).groups()
+                username, channel, message = re.search(r':(.*).*@.*\.tmi\.twitch\.tv PRIVMSG #(.*) :(.*)',
+                                                       msg).groups()
                 if message.startswith("@"):
                     addressee = message.split(' ')[0]
                 else:
                     addressee = ""
-                print(f"Channel: {channel} \nTime: {time_msg} \nUsername: {username} \nAddressee {addressee} \nMessage: {message}")
-                print()
+
+                print(f"Channel: {channel} \n"
+                      f"Time: {time_msg} \n"
+                      f"Username: {username} \n"
+                      f"Addressee {addressee} \n"
+                      f"Message: {message} \n")
+
             except:
                 print("don\'t parse message")
                 continue
